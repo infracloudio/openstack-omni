@@ -116,20 +116,6 @@ class Store(glance_store.driver.Store):
         LOG.info('get on store')
         yield ('gce://generic', self.get_size(location, context))
 
-    @capabilities.check
-    def delete(self, location, context=None):
-        """Takes a `glance_store.location.Location` object that indicates
-        where to find the image file to delete
-
-        :param location: `glance_store.location.Location` object, supplied
-                  from glance_store.location.get_location_from_uri()
-        :raises NotFound if image does not exist
-        """
-        LOG.info("Delete image")
-        gce_id = location.get_store_uri()
-        LOG.info(gce_id)
-        # TODO: Complete
-
     def get_size(self, location, context=None):
         """
         Takes a `glance_store.location.Location` object that indicates
@@ -144,3 +130,37 @@ class Store(glance_store.driver.Store):
         LOG.inf(gce_id)
         # TODO: Actual size
         return 10
+
+    @capabilities.check
+    def add(self, image_id, image_file, image_size, context=None,
+            verifier=None):
+        """
+        Stores an image file with supplied identifier to the backend
+        storage system and returns a tuple containing information
+        about the stored image.
+
+        :param image_id: The opaque image identifier
+        :param image_file: The image data to write, as a file-like object
+        :param image_size: The size of the image data to write, in bytes
+
+        :retval: tuple of URL in backing store, bytes written, checksum
+               and a dictionary with storage system specific information
+        :raises: `glance_store.exceptions.Duplicate` if the image already
+                existed
+        """
+        raise NotImplementedError
+
+
+    @capabilities.check
+    def delete(self, location, context=None):
+        """Takes a `glance_store.location.Location` object that indicates
+        where to find the image file to delete
+
+        :param location: `glance_store.location.Location` object, supplied
+                  from glance_store.location.get_location_from_uri()
+        :raises NotFound if image does not exist
+        """
+        LOG.info("Delete image")
+        gce_id = location.get_store_uri()
+        LOG.info(gce_id)
+        # TODO: Complete
