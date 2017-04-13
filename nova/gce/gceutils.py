@@ -275,3 +275,16 @@ def get_machines_info(compute, project, zone):
         for machine_type in response['items']
     }
     return GCE_MAP
+
+
+def get_images(compute, project):
+    """Return public images info from GCE
+    :param compute: GCE compute resource object using googleapiclient.discovery
+    :param project: string, GCE Project Id
+    """
+    response = compute.images().list(project=project,
+                                     filter="status eq READY").execute()
+    if 'items' not in response:
+        return []
+    imgs = filter(lambda img: 'deprecated' not in img, response['items'])
+    return imgs
