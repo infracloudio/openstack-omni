@@ -26,6 +26,7 @@ import gceutils
 
 from keystoneauth1 import loading, session
 from keystoneclient import client
+from six.moves import urllib
 
 
 def get_keystone_session(auth_url=os.environ['OS_AUTH_URL'],
@@ -60,10 +61,6 @@ class GceImages(object):
         'suse-cloud', 'ubuntu-os-cloud', 'windows-cloud'
     ]
 
-    GC_PUBLIC_PROJECTS = [
-        'debian-cloud',
-    ]
-
     def __init__(self, service_key_path):
         self.gce_svc = gceutils.get_gce_service(service_key_path)
         self.img_kind = {
@@ -81,6 +78,11 @@ class GceImages(object):
         for image in self.get_all_public_images():
             self.create_image(self._gce_to_ostack_formatter(image))
 
+    def _get_project(self, gce_link):
+        parsed_link = urllib.parse.urlparse(gce_link)
+        project = parsed_link.path.strip('/').split('/')[3]
+        return project
+
     def create_image(self, img_data):
         """
         Create an OpenStack image.
@@ -92,10 +94,11 @@ class GceImages(object):
         gce_id = img_data['name']
         print("Creating image: {0}".format(gce_id))
         gce_link = img_data['gce_link']
+        gce_project = self._get_project(gce_link)
         img_props = {
             'locations': [{
                 'url':
-                'gce://%s/%s/%s' % ('debian-cloud', gce_id, glance_id),
+                'gce://%s/%s/%s' % (gce_project, gce_id, glance_id),
                 'metadata': {
                     'gce_link': gce_link
                 }
@@ -142,7 +145,7 @@ class GceImages(object):
 
     def _gce_to_ostack_formatter(self, gce_img_data):
         """
-        Converts aws img data to Openstack img data format.
+        Converts GCE img data to Openstack img data format.
         :param img(dict): gce img data
         :return(dict): ostack img data
         """
