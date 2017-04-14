@@ -288,3 +288,12 @@ def get_images(compute, project):
         return []
     imgs = filter(lambda img: 'deprecated' not in img, response['items'])
     return imgs
+
+
+def get_image(compute, project, name):
+    """Return public images info from GCE
+    :param compute: GCE compute resource object using googleapiclient.discovery
+    :param project: string, GCE Project Id
+    """
+    result = compute.images().get(project=project, image=name).execute()
+    return result
