@@ -25,21 +25,31 @@ import keystoneauth1
 import gceutils
 
 from keystoneauth1 import loading, session
+from keystoneclient import client
 
 
-def get_keystone_session(
-        auth_url=os.environ['OS_AUTH_URL'],
-        project_name=os.environ['OS_PROJECT_NAME'],
-        project_domain_name=os.environ['OS_PROJECT_DOMAIN_NAME'],
-        username=os.environ['OS_USERNAME'],
-        user_domain_name=os.environ['OS_USER_DOMAIN_NAME'],
-        password=os.environ['OS_PASSWORD']):
+def get_keystone_session(auth_url=os.environ['OS_AUTH_URL'],
+                         project_name=os.environ.get('OS_PROJECT_NAME', ''),
+                         tenant_name=os.environ.get('OS_TENANT_NAME', ''),
+                         project_domain_name=os.environ.get(
+                             'OS_PROJECT_DOMAIN_NAME', 'default'),
+                         username=os.environ['OS_USERNAME'],
+                         user_domain_name=os.environ.get(
+                             'OS_USER_DOMAIN_NAME', 'default'),
+                         password=os.environ['OS_PASSWORD']):
 
+    if not project_name:
+        if not tenant_name:
+            raise Exception("OS_PROJECT_NAME or OS_TENANT_NAME not set.")
+        project_name = tenant_name
     loader = loading.get_plugin_loader('password')
     auth = loader.load_from_options(
-        auth_url=auth_url, project_name=project_name,
-        project_domain_name=project_domain_name, username=username,
-        user_domain_name=user_domain_name, password=password)
+        auth_url=auth_url,
+        project_name=project_name,
+        project_domain_name=project_domain_name,
+        username=username,
+        user_domain_name=user_domain_name,
+        password=password)
     sess = session.Session(auth=auth)
     return sess
 
@@ -78,9 +88,9 @@ class GceImages(object):
         :returns: dict -- Response from REST call
         :raises: requests.HTTPError
         """
-        sys.stdout.write('Creating image: ' + str(img_data) + ' \n')
         glance_id = img_data['id']
         gce_id = img_data['name']
+        print("Creating image: {0}".format(gce_id))
         gce_link = img_data['gce_link']
         img_props = {
             'locations': [{
@@ -92,8 +102,8 @@ class GceImages(object):
             }]
         }
         try:
-            resp = self.glance_client.request('POST', '/v2/images',
-                                              json=img_data)
+            resp = self.glance_client.request(
+                'POST', '/v2/images', json=img_data)
             resp.raise_for_status()
             # Need to update the image in the registry
             # with location information so
@@ -104,6 +114,7 @@ class GceImages(object):
             pass
         except requests.HTTPError as e:
             raise e
+        print("Created image: {0}".format(gce_id))
 
     def update_properties(self, imageid, props):
         """
@@ -120,8 +131,8 @@ class GceImages(object):
                 'path': '/%s' % name,
                 'value': value
             })
-        resp = self.glance_client.request('PATCH', '/v2/images/%s' % imageid,
-                                          json=patch_body)
+        resp = self.glance_client.request(
+            'PATCH', '/v2/images/%s' % imageid, json=patch_body)
         resp.raise_for_status()
 
     def _get_image_uuid(self, gce_id):
@@ -138,7 +149,7 @@ class GceImages(object):
         return {
             'id': self._get_image_uuid(gce_img_data['id']),
             'name': gce_img_data['name'],
-            'container_format': self.img_kind[gce_img_data['sourceType']],
+            'container_format': 'bare',
             'disk_format': self.img_kind[gce_img_data['sourceType']],
             'visibility': 'public',
             'pf9_description': gce_img_data['description'],
@@ -150,8 +161,24 @@ class GceImages(object):
 
 class RestClient(object):
     def __init__(self):
-        self.sess = get_keystone_session()
-        self.glance_endpoint = 'http://controller:9292'
+        auth_url = os.environ['OS_AUTH_URL']
+        if auth_url.find('v2.0') > 0:
+            auth_url = auth_url.replace('v2.0', 'v3')
+        self.auth_url = auth_url
+        self.region_name = os.environ['OS_REGION_NAME']
+        self.sess = get_keystone_session(auth_url=self.auth_url)
+        self.glance_endpoint = self.get_glance_endpoint()
+
+    def get_glance_endpoint(self):
+        self.ksclient = client.Client(
+            auth_url=self.auth_url, session=self.sess)
+        glance_service_id = self.ksclient.services.list(name='glance')[0].id
+        glance_url = self.ksclient.endpoints.list(
+            service=glance_service_id,
+            interface='public',
+            enabled=True,
+            region=self.region_name)[0].url
+        return glance_url
 
     def request(self, method, path, **kwargs):
         """
