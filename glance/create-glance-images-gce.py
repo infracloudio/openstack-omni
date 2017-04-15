@@ -29,28 +29,26 @@ from keystoneclient import client
 from six.moves import urllib
 
 
-def get_keystone_session(auth_url=os.environ['OS_AUTH_URL'],
-                         project_name=os.environ.get('OS_PROJECT_NAME', ''),
-                         tenant_name=os.environ.get('OS_TENANT_NAME', ''),
-                         project_domain_name=os.environ.get(
-                             'OS_PROJECT_DOMAIN_NAME', 'default'),
-                         username=os.environ['OS_USERNAME'],
-                         user_domain_name=os.environ.get(
-                             'OS_USER_DOMAIN_NAME', 'default'),
-                         password=os.environ['OS_PASSWORD']):
+def get_keystone_session(
+        auth_url=os.environ['OS_AUTH_URL'],
+        project_name=os.environ.get('OS_PROJECT_NAME', ''),
+        tenant_name=os.environ.get('OS_TENANT_NAME', ''),
+        project_domain_name=os.environ.get('OS_PROJECT_DOMAIN_NAME',
+                                           'default'),  # noqa
+        username=os.environ['OS_USERNAME'],
+        user_domain_name=os.environ.get('OS_USER_DOMAIN_NAME', 'default'),
+        password=os.environ['OS_PASSWORD']):
 
     if not project_name:
         if not tenant_name:
             raise Exception("OS_PROJECT_NAME or OS_TENANT_NAME not set.")
         project_name = tenant_name
+
     loader = loading.get_plugin_loader('password')
     auth = loader.load_from_options(
-        auth_url=auth_url,
-        project_name=project_name,
-        project_domain_name=project_domain_name,
-        username=username,
-        user_domain_name=user_domain_name,
-        password=password)
+        auth_url=auth_url, project_name=project_name,
+        project_domain_name=project_domain_name, username=username,
+        user_domain_name=user_domain_name, password=password)
     sess = session.Session(auth=auth)
     return sess
 
@@ -86,7 +84,7 @@ class GceImages(object):
     def create_image(self, img_data):
         """
         Create an OpenStack image.
-        :param img_data: dict -- Describes AWS AMI
+        :param img_data: dict -- Describes GCE Image
         :returns: dict -- Response from REST call
         :raises: requests.HTTPError
         """
@@ -105,8 +103,8 @@ class GceImages(object):
             }]
         }
         try:
-            resp = self.glance_client.request(
-                'POST', '/v2/images', json=img_data)
+            resp = self.glance_client.request('POST', '/v2/images',
+                                              json=img_data)
             resp.raise_for_status()
             # Need to update the image in the registry
             # with location information so
@@ -134,8 +132,8 @@ class GceImages(object):
                 'path': '/%s' % name,
                 'value': value
             })
-        resp = self.glance_client.request(
-            'PATCH', '/v2/images/%s' % imageid, json=patch_body)
+        resp = self.glance_client.request('PATCH', '/v2/images/%s' % imageid,
+                                          json=patch_body)
         resp.raise_for_status()
 
     def _get_image_uuid(self, gce_id):
@@ -173,13 +171,11 @@ class RestClient(object):
         self.glance_endpoint = self.get_glance_endpoint()
 
     def get_glance_endpoint(self):
-        self.ksclient = client.Client(
-            auth_url=self.auth_url, session=self.sess)
+        self.ksclient = client.Client(auth_url=self.auth_url,
+                                      session=self.sess)
         glance_service_id = self.ksclient.services.list(name='glance')[0].id
         glance_url = self.ksclient.endpoints.list(
-            service=glance_service_id,
-            interface='public',
-            enabled=True,
+            service=glance_service_id, interface='public', enabled=True,
             region=self.region_name)[0].url
         return glance_url
 
