@@ -121,16 +121,20 @@ def set_instance_metadata(compute, project, zone, instance, items,
                                            body=metadata).execute()
 
 
-def create_instance(compute, project, zone, name):
+def create_instance(compute, project, zone, name, image_link, machine_link):
     """Create GCE instance
     :param compute: GCE compute resource object using googleapiclient.discovery
     :param project: string, GCE Project Id
     :param zone: string, GCE Name of zone
     :param name: string, Name of instance to be launched
+    :param image_link: url, GCE Image link for instance launch
+    :param machine_link: url, GCE Machine link for instance launch
     """
-    source_disk_image = "projects/%s/global/images/%s" % (
-        "debian-cloud", "debian-8-jessie-v20170327")
-    machine_type = "zones/%s/machineTypes/n1-standard-1" % zone
+    # source_disk_image = "projects/%s/global/images/%s" % (
+    #     "debian-cloud", "debian-8-jessie-v20170327")
+    # machine_link = "zones/%s/machineTypes/n1-standard-1" % zone
+    LOG.info("Launching instance %s with image %s and machine %s" %
+             (name, image_link, machine_link))
 
     config = {
         'kind':
@@ -138,14 +142,14 @@ def create_instance(compute, project, zone, name):
         'name':
         name,
         'machineType':
-        machine_type,
+        machine_link,
 
         # Specify the boot disk and the image to use as a source.
         'disks': [{
             'boot': True,
             'autoDelete': True,
             'initializeParams': {
-                'sourceImage': source_disk_image,
+                'sourceImage': image_link,
             }
         }],
 

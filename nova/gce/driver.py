@@ -191,6 +191,7 @@ class GCEDriver(driver.ComputeDriver):
         """
         compute, project, zone = self.gce_svc, self.gce_project, self.gce_zone
         instance_name = instance.name
+        import pdb; pdb.set_trace()
         LOG.info("Creating instance %s as %s on GCE." % (instance.display_name,
                                                          instance.name))
         operation = gceutils.create_instance(compute, project, zone,
@@ -446,6 +447,7 @@ class GCEDriver(driver.ComputeDriver):
         power_state = GCE_STATE_MAP[gce_instance['status']]
 
         # TODO: Get correct flavor info
+        raise Exception("get_info")
         gce_flavor = self.gce_flavor_info['n1-standard-1']
         memory_mb = gce_flavor['memory_mb']
         vcpus = gce_flavor['vcpus']
