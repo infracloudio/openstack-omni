@@ -29,6 +29,8 @@ def list_instances(compute, project, zone):
     :param zone: string, GCE Name of zone
     """
     result = compute.instances().list(project=project, zone=zone).execute()
+    if 'items' not in result:
+        return []
     return result['items']
 
 
