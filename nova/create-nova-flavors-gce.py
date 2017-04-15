@@ -20,7 +20,7 @@ import os
 import sys
 import gceutils
 
-from novaclient import nova_client
+from novaclient import client as nova_client
 from keystoneauth1 import loading, session
 
 
@@ -62,11 +62,12 @@ class GceFlavors(object):
         self.nova_client = nova_client.Client('2', session=self.sess)
 
     def register_gce_flavors(self):
-        flavors = gceutils.gce_machines_info(self.gce_svc, self.project,
+        flavors = gceutils.get_machines_info(self.gce_svc, self.project,
                                              self.zone)
         for flavor_name, flavor_info in flavors.iteritems():
             self.nova_client.flavors.create(
                 flavor_name, flavor_info['memory_mb'], flavor_info['vcpus'], 0)
+            print("Registered flavor %s" % flavor_name)
 
 
 if __name__ == '__main__':
@@ -74,6 +75,5 @@ if __name__ == '__main__':
         sys.stderr.write(
             'Incorrect usage: this script takes exactly 4 arguments.\n')
         sys.exit(1)
-
-    gce_flavors = GceFlavors(sys.argv[1], sys.argv[2], sys.argv[2])
+    gce_flavors = GceFlavors(sys.argv[1], sys.argv[2], sys.argv[3])
     gce_flavors.register_gce_flavors()
