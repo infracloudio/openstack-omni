@@ -1,4 +1,4 @@
-# Copyright (c) 2016 Platform9 Systems Inc. (http://www.platform9.com)
+# Copyright (c) 2017 Platform9 Systems Inc. (http://www.platform9.com)
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -29,7 +29,7 @@ MAX_REDIRECTS = 5
 STORE_SCHEME = 'gce'
 
 gce_group = cfg.OptGroup(name='GCE',
-                         title='Options to connect to an Google cloud')
+                         title='Options to connect to Google cloud')
 
 gce_opts = [
     cfg.StrOpt('service_key_path', help='Service key of GCE account',
@@ -40,7 +40,7 @@ gce_opts = [
 
 
 class StoreLocation(glance_store.location.StoreLocation):
-    """Class describing an GCE URI."""
+    """Class describing GCE URI."""
 
     def __init__(self, store_specs, conf):
         super(StoreLocation, self).__init__(store_specs, conf)
@@ -57,13 +57,13 @@ class StoreLocation(glance_store.location.StoreLocation):
 
     def parse_uri(self, uri):
         """Parse URLs based on GCE scheme """
-        LOG.info('Parse uri %s' % (uri, ))
+        LOG.debug('Parse uri %s' % (uri, ))
         if not uri.startswith('%s://' % STORE_SCHEME):
             reason = (_("URI %(uri)s must start with %(scheme)s://") % {
                 'uri': uri,
                 'scheme': STORE_SCHEME
             })
-            LOG.info(reason)
+            LOG.error(reason)
             raise exceptions.BadStoreUri(message=reason)
         pieces = urllib.parse.urlparse(uri)
         self.scheme = pieces.scheme
@@ -89,7 +89,7 @@ class Store(glance_store.driver.Store):
         self.gce_project = conf.GCE.project_id
         self.gce_svc_key = conf.GCE.service_key_path
         self.gce_svc = gceutils.get_gce_service(self.gce_svc_key)
-        LOG.info('Innitialize GCE Glance Store driver')
+        LOG.info('Initialized GCE Glance Store driver')
 
     def get_schemes(self):
         """
@@ -142,6 +142,7 @@ class Store(glance_store.driver.Store):
         :raises: `glance_store.exceptions.Duplicate` if the image already
                 existed
         """
+        # Adding images is not suppported yet
         raise NotImplementedError
 
     @capabilities.check
@@ -153,4 +154,7 @@ class Store(glance_store.driver.Store):
                   from glance_store.location.get_location_from_uri()
         :raises NotFound if image does not exist
         """
+        # This method works for GCE public images as we just need to delete
+        # entry from glance catalog.
+        # For Private images we will need extra handling here.
         LOG.info("Delete image %s" % location.get_store_uri())

@@ -1,4 +1,4 @@
-# Copyright (c) 2016 Platform9 Systems Inc. (http://www.platform9.com)
+# Copyright (c) 2017 Platform9 Systems Inc. (http://www.platform9.com)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,15 +29,21 @@ from keystoneclient import client
 from six.moves import urllib
 
 
+def get_env_param(env_name):
+    if env_name in os.environ:
+        return os.environ[env_name]
+    raise Exception("%s environment variable not set." % env_name)
+
+
 def get_keystone_session(
-        auth_url=os.environ['OS_AUTH_URL'],
+        auth_url=get_env_param('OS_AUTH_URL'),
         project_name=os.environ.get('OS_PROJECT_NAME', ''),
         tenant_name=os.environ.get('OS_TENANT_NAME', ''),
         project_domain_name=os.environ.get('OS_PROJECT_DOMAIN_NAME',
                                            'default'),  # noqa
-        username=os.environ['OS_USERNAME'],
+        username=get_env_param('OS_USERNAME'),
         user_domain_name=os.environ.get('OS_USER_DOMAIN_NAME', 'default'),
-        password=os.environ['OS_PASSWORD']):
+        password=get_env_param('OS_PASSWORD')):
 
     if not project_name:
         if not tenant_name:
@@ -110,7 +116,7 @@ class GceImages(object):
             # with location information so
             # the status changes from 'queued' to 'active'
             self.update_properties(glance_id, img_props)
-        except keystoneauth1.exceptions.http.Conflict as e:
+        except keystoneauth1.exceptions.http.Conflict:
             # ignore error if image already exists
             pass
         except requests.HTTPError as e:
@@ -153,7 +159,6 @@ class GceImages(object):
             'container_format': 'bare',
             'disk_format': self.img_kind[gce_img_data['sourceType']],
             'visibility': 'public',
-            'pf9_description': gce_img_data['description'],
             'gce_image_id': gce_img_data['id'],
             'gce_size': gce_img_data['diskSizeGb'],
             'gce_link': gce_img_data['selfLink']
@@ -162,11 +167,11 @@ class GceImages(object):
 
 class RestClient(object):
     def __init__(self):
-        auth_url = os.environ['OS_AUTH_URL']
+        auth_url = get_env_param('OS_AUTH_URL')
         if auth_url.find('v2.0') > 0:
             auth_url = auth_url.replace('v2.0', 'v3')
         self.auth_url = auth_url
-        self.region_name = os.environ['OS_REGION_NAME']
+        self.region_name = get_env_param('OS_REGION_NAME')
         self.sess = get_keystone_session(auth_url=self.auth_url)
         self.glance_endpoint = self.get_glance_endpoint()
 
