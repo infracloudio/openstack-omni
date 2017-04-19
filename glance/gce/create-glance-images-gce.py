@@ -37,8 +37,8 @@ def get_env_param(env_name):
 
 def get_keystone_session(
         auth_url=get_env_param('OS_AUTH_URL'),
-        project_name=os.environ.get('OS_PROJECT_NAME', ''),
-        tenant_name=os.environ.get('OS_TENANT_NAME', ''),
+        project_name=os.environ.get('OS_PROJECT_NAME'),
+        tenant_name=os.environ.get('OS_TENANT_NAME'),
         project_domain_name=os.environ.get('OS_PROJECT_DOMAIN_NAME',
                                            'default'),  # noqa
         username=get_env_param('OS_USERNAME'),
@@ -47,7 +47,8 @@ def get_keystone_session(
 
     if not project_name:
         if not tenant_name:
-            raise Exception("OS_PROJECT_NAME or OS_TENANT_NAME not set.")
+            raise Exception(
+                "Either OS_PROJECT_NAME or OS_TENANT_NAME is required.")
         project_name = tenant_name
 
     loader = loading.get_plugin_loader('password')
@@ -60,9 +61,13 @@ def get_keystone_session(
 
 
 class GceImages(object):
+    # Identified by referring,
+    # 1. https://console.cloud.google.com/compute/images
+    # 2. https://cloud.google.com/compute/docs/images#os-compute-support
     GC_PUBLIC_PROJECTS = [
         'cos-cloud', 'centos-cloud', 'debian-cloud', 'rhel-cloud',
-        'suse-cloud', 'ubuntu-os-cloud', 'windows-cloud'
+        'suse-cloud', 'ubuntu-os-cloud', 'windows-cloud', 'coreos-cloud',
+        'windows-sql-cloud'
     ]
 
     def __init__(self, service_key_path):
@@ -83,6 +88,8 @@ class GceImages(object):
             self.create_image(self._gce_to_ostack_formatter(image))
 
     def _get_project(self, gce_link):
+        # Sample GCE link path:
+        # https://<domain>/compute/v1/projects/<project>/global/images/<image>
         parsed_link = urllib.parse.urlparse(gce_link)
         project = parsed_link.path.strip('/').split('/')[3]
         return project
@@ -116,12 +123,12 @@ class GceImages(object):
             # with location information so
             # the status changes from 'queued' to 'active'
             self.update_properties(glance_id, img_props)
+            print("Created image: {0}".format(gce_id))
         except keystoneauth1.exceptions.http.Conflict:
             # ignore error if image already exists
             pass
         except requests.HTTPError as e:
             raise e
-        print("Created image: {0}".format(gce_id))
 
     def update_properties(self, imageid, props):
         """
@@ -202,8 +209,7 @@ class RestClient(object):
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        sys.stderr.write(
-            'Incorrect usage: this script takes exactly 2 arguments.\n')
+        print('Usage: {0} <service_key_path>'.format(sys.argv[0]))
         sys.exit(1)
 
     gce_images = GceImages(sys.argv[1])

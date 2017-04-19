@@ -1,1 +1,0 @@
-../nova/gce/gceutils.py

@@ -32,8 +32,8 @@ def get_env_param(env_name):
 
 def get_keystone_session(
         auth_url=get_env_param('OS_AUTH_URL'),
-        project_name=os.environ.get('OS_PROJECT_NAME', ''),
-        tenant_name=os.environ.get('OS_TENANT_NAME', ''),
+        project_name=os.environ.get('OS_PROJECT_NAME'),
+        tenant_name=os.environ.get('OS_TENANT_NAME'),
         project_domain_name=os.environ.get('OS_PROJECT_DOMAIN_NAME',
                                            'default'),  # noqa
         username=get_env_param('OS_USERNAME'),
@@ -42,7 +42,7 @@ def get_keystone_session(
 
     if not project_name:
         if not tenant_name:
-            raise Exception("OS_PROJECT_NAME or OS_TENANT_NAME not set.")
+            raise Exception("Either OS_PROJECT_NAME or OS_TENANT_NAME is required.")
         project_name = tenant_name
 
     loader = loading.get_plugin_loader('password')
@@ -78,8 +78,7 @@ class GceFlavors(object):
 
 if __name__ == '__main__':
     if len(sys.argv) != 4:
-        sys.stderr.write(
-            'Incorrect usage: this script takes exactly 4 arguments.\n')
+        print('Usage: {0} <service_key_path> <project> <zone>'.format(sys.argv[0]))
         sys.exit(1)
     gce_flavors = GceFlavors(sys.argv[1], sys.argv[2], sys.argv[3])
     gce_flavors.register_gce_flavors()
