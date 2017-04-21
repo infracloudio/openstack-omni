@@ -15,11 +15,29 @@
 import six
 import time
 from oslo_log import log as logging
+from oslo_config import cfg
 
 from googleapiclient.discovery import build
 from oauth2client.client import GoogleCredentials
 
 LOG = logging.getLogger(__name__)
+
+gce_group = cfg.OptGroup(name='GCE',
+                         title='Options to connect to Google cloud')
+
+gce_opts = [
+    cfg.StrOpt('service_key_path', help='Service key of GCE account',
+               secret=True),
+    cfg.StrOpt('zone', help='GCE region'),
+    cfg.StrOpt('project_id', help='GCE project id'),
+]
+
+cfg.CONF.register_group(gce_group)
+cfg.CONF.register_opts(gce_opts, group=gce_group)
+
+
+def get_gce_conf():
+    return cfg.CONF.GCE
 
 
 def list_instances(compute, project, zone):
