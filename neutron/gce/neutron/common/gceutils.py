@@ -226,8 +226,7 @@ def reset_instance(compute, project, zone, name):
                                      instance=name).execute()
 
 
-def wait_for_operation(compute, project, zone, operation, interval=1,
-                       timeout=60):
+def wait_for_operation(compute, project, operation, interval=1, timeout=60):
     """Wait for GCE operation to complete, raise error if operation failure
     :param compute: GCE compute resource object using googleapiclient.discovery
     :param project: string, GCE Project Id
@@ -240,19 +239,22 @@ def wait_for_operation(compute, project, zone, operation, interval=1,
     if interval < 1:
         raise ValueError("wait_for_operation: Interval should be positive")
     iterations = timeout / interval
-    if 'zone' in None:
-        global_operation = True
+
+    if 'zone' in operation:
+        zone = operation['zone'].split('/')[-1]
+        monitor_request = compute.zoneOperations().get(
+            project=project, zone=zone, operation=operation_name)
+    elif 'region' in operation:
+        region = operation['region'].split('/')[-1]
+        monitor_request = compute.regionOperations().get(
+            project=project, region=region, operation=operation_name)
     else:
-        global_operation = False
+        monitor_request = compute.globalOperations().get(
+            project=project, operation=operation_name)
 
     for i in range(iterations):
-        if global_operation:
-            result = compute.globalOperations().get(
-                project=project, operation=operation_name).execute()
-        else:
-            result = compute.zoneOperations().get(
-                project=project, zone=zone,
-                operation=operation_name).execute()
+        result = monitor_request.execute()
+        print(result['status'])
         if result['status'] == 'DONE':
             LOG.info("Operation %s status is %s" % (operation_name,
                                                     result['status']))
@@ -317,7 +319,12 @@ def get_image(compute, project, name):
 
 def create_network(compute, project, name):
     body = {'autoCreateSubnetworks': False, 'name': name}
-    return compute.networks().insert(project=project, body=body)
+    return compute.networks().insert(project=project, body=body).execute()
+
+
+def get_network(compute, project, name):
+    result = compute.networks().get(project=project, network=name).execute()
+    return result
 
 
 def create_subnet(compute, project, region, name, ipcidr, network_link):
@@ -328,4 +335,13 @@ def create_subnet(compute, project, region, name, ipcidr, network_link):
         'network': network_link
     }
     return compute.subnetworks().insert(project=project, region=region,
-                                        body=body)
+                                        body=body).execute()
+
+
+def delete_subnet(compute, project, region, name):
+    return compute.subnetworks().delete(project=project, region=region,
+                                        subnetwork=name).execute()
+
+
+def delete_network(compute, project, name):
+    return compute.networks().delete(project=project, network=name).execute()
