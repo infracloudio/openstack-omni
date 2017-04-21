@@ -15,27 +15,11 @@
 import six
 import time
 from oslo_log import log as logging
-from oslo_config import cfg
 
 from googleapiclient.discovery import build
 from oauth2client.client import GoogleCredentials
 
 LOG = logging.getLogger(__name__)
-
-gce_group = cfg.OptGroup(name='GCE',
-                         title='Options to connect to Google cloud')
-
-gce_opts = [
-    cfg.StrOpt('service_key_path', help='Service key of GCE account',
-               secret=True),
-    cfg.StrOpt('zone', help='GCE region'),
-    cfg.StrOpt('project_id', help='GCE project id'),
-]
-
-cfg.CONF.register_group(gce_group)
-cfg.CONF.register_opts(gce_opts, group=gce_group)
-
-GCE = cfg.CONF.GCE
 
 
 def list_instances(compute, project, zone):
@@ -256,9 +240,19 @@ def wait_for_operation(compute, project, zone, operation, interval=1,
     if interval < 1:
         raise ValueError("wait_for_operation: Interval should be positive")
     iterations = timeout / interval
+    if 'zone' in None:
+        global_operation = True
+    else:
+        global_operation = False
+
     for i in range(iterations):
-        result = compute.zoneOperations().get(
-            project=project, zone=zone, operation=operation_name).execute()
+        if global_operation:
+            result = compute.globalOperations().get(
+                project=project, operation=operation_name).execute()
+        else:
+            result = compute.zoneOperations().get(
+                project=project, zone=zone,
+                operation=operation_name).execute()
         if result['status'] == 'DONE':
             LOG.info("Operation %s status is %s" % (operation_name,
                                                     result['status']))
@@ -319,3 +313,19 @@ def get_image(compute, project, name):
     """
     result = compute.images().get(project=project, image=name).execute()
     return result
+
+
+def create_network(compute, project, name):
+    body = {'autoCreateSubnetworks': False, 'name': name}
+    return compute.networks().insert(project=project, body=body)
+
+
+def create_subnet(compute, project, region, name, ipcidr, network_link):
+    body = {
+        'privateIpGoogleAccess': False,
+        'name': name,
+        'ipCidrRange': ipcidr,
+        'network': network_link
+    }
+    return compute.subnetworks().insert(project=project, region=region,
+                                        body=body)
