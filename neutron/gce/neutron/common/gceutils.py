@@ -35,9 +35,7 @@ gce_opts = [
 cfg.CONF.register_group(gce_group)
 cfg.CONF.register_opts(gce_opts, group=gce_group)
 
-
-def get_gce_conf():
-    return cfg.CONF.GCE
+GCE = cfg.CONF.GCE
 
 
 def list_instances(compute, project, zone):
