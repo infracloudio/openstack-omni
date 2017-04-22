@@ -12,11 +12,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_log import log
+import ipaddr
+from neutron.common import gceconf, gceutils
 from neutron.plugins.ml2 import driver_api as api
-from neutron.common import gceutils
+from oslo_log import log
 
-LOG = log.getlogger(__name__)
+LOG = log.getLogger(__name__)
 
 
 class GceMechanismDriver(api.MechanismDriver):
@@ -24,9 +25,29 @@ class GceMechanismDriver(api.MechanismDriver):
 
     def __init__(self):
         super(GceMechanismDriver, self).__init__()
+        self.gce_zone = gceconf.zone
+        self.gce_region = gceconf.region
+        self.gce_project = gceconf.project_id
+        self.gce_svc_key = gceconf.service_key_path
 
     def initialize(self):
         LOG.info("Innitialize GCE Mechanism Driver")
+        self.gce_svc = gceutils.get_gce_service(self.gce_svc_key)
+        LOG.info("GCE Mechanism driver init with %s project, %s region" %
+                 (self.gce_project, self.gce_region))
+
+    def _gce_network_name(self, context):
+        return 'net-' + context.current['id']
+
+    def _gce_subnet_name(self, context):
+        return 'subnet-' + context.current['id']
+
+    def _gce_subnet_network_name(self, context):
+        return 'net-' + context.current['network_id']
+
+    @staticmethod
+    def is_private_network(cidr):
+        return ipaddr.IPNetwork(cidr).is_private
 
     def create_network_precommit(self, context):
         """Allocate resources for a new network.
@@ -53,8 +74,12 @@ class GceMechanismDriver(api.MechanismDriver):
         drastically affect performance. Raising an exception will
         cause the deletion of the resource.
         """
-        LOG.info("create_network_postcommit {0}".format(context.__dict__))
-        pass
+        LOG.info("create_network_postcommit {0}".format(context.current))
+        compute, project = self.gce_svc, self.gce_project
+        name = self._gce_network_name(context)
+        operation = gceutils.create_network(compute, project, name)
+        gceutils.wait_for_operation(compute, project, operation)
+        LOG.info('Created network on GCE %s' % name)
 
     def update_network_precommit(self, context):
         """Update resources of a network.
@@ -82,7 +107,6 @@ class GceMechanismDriver(api.MechanismDriver):
         state of the network, as well as the original state prior
         to the update_network call.
 
-        Called after the transaction commits. Call can block, though
         will block the entire process so care should be taken to not
         drastically affect performance. Raising an exception will
         cause the deletion of the resource.
@@ -121,8 +145,12 @@ class GceMechanismDriver(api.MechanismDriver):
         expected, and will not prevent the resource from being
         deleted.
         """
-        LOG.info("delete_network_postcommit {0}".format(context.__dict__))
-        pass
+        LOG.info("delete_network_postcommit {0}".format(context.current))
+        compute, project = self.gce_svc, self.gce_project
+        name = self._gce_network_name(context)
+        operation = gceutils.delete_network(compute, project, name)
+        gceutils.wait_for_operation(compute, project, operation)
+        LOG.info('Deleted network on GCE %s' % name)
 
     def create_subnet_precommit(self, context):
         """Allocate resources for a new subnet.
@@ -149,8 +177,18 @@ class GceMechanismDriver(api.MechanismDriver):
         drastically affect performance. Raising an exception will
         cause the deletion of the resource.
         """
-        LOG.info("create_subnet_postcommit {0}".format(context.__dict__))
-        pass
+        LOG.info("create_subnet_postcommit {0}".format(context.current))
+        compute, project, region = self.gce_svc, self.gce_project, self.gce_region
+        network_name = self._gce_subnet_network_name(context)
+        name = self._gce_subnet_name(context)
+        cidr = context.current['cidr']
+        if self.is_private_network(cidr):
+            network = gceutils.get_network(compute, project, network_name)
+            network_link = network['selfLink']
+            operation = gceutils.create_subnet(compute, project, region, name,
+                                               cidr, network_link)
+            gceutils.wait_for_operation(compute, project, operation)
+            LOG.info("Created subnet %s in region %s on GCE" % (name, region))
 
     def update_subnet_precommit(self, context):
         """Update resources of a subnet.
@@ -217,5 +255,11 @@ class GceMechanismDriver(api.MechanismDriver):
         expected, and will not prevent the resource from being
         deleted.
         """
-        LOG.info("delete_subnet_postcommit {0}".format(context.__dict__))
-        pass
+        LOG.info("delete_subnet_postcommit {0}".format(context.current))
+        compute, project, region = self.gce_svc, self.gce_project, self.gce_region
+        cidr = context.current['cidr']
+        if self.is_private_network(cidr):
+            name = self._gce_subnet_name(context)
+            operation = gceutils.delete_subnet(compute, project, region, name)
+            gceutils.wait_for_operation(compute, project, operation)
+            LOG.info("Deleted subnet %s in region %s on GCE" % (name, region))
