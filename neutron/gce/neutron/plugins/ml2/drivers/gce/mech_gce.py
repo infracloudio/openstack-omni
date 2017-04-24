@@ -12,9 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import ipaddr
 import random
-import json
+
+import ipaddr
 from neutron.common import gceconf, gceutils
 from neutron.plugins.ml2 import driver_api as api
 from oslo_log import log
@@ -39,10 +39,10 @@ class GceMechanismDriver(api.MechanismDriver):
                  (self.gce_project, self.gce_region))
 
     def _gce_network_name(self, context):
-        return 'net-' + context.current['id']
+        return 'net-' + context.current[api.ID]
 
     def _gce_subnet_name(self, context):
-        return 'subnet-' + context.current['id']
+        return 'subnet-' + context.current[api.ID]
 
     def _gce_subnet_network_name(self, context):
         return 'net-' + context.current['network_id']
@@ -308,20 +308,11 @@ class GceMechanismDriver(api.MechanismDriver):
         can use with ports.
         """
         LOG.info("bind_port {0}".format(context.__dict__))
-        import ipdb; ipdb.set_trace()
         fixed_ip_dict = dict()
         if 'fixed_ips' in context.current:
             if len(context.current['fixed_ips']) > 0:
                 fixed_ip_dict = context.current['fixed_ips'][0]
-                # fixed_ip_dict['subnet_id'] = \
-                #    self.aws_utils.get_subnet_from_neutron_subnet_id(
-                #        fixed_ip_dict['subnet_id'])
-                # secgroup_ids = context.current['security_groups']
-                # self.create_security_groups_if_needed(context, secgroup_ids)
-
-        segment_id = random.choice(context.network.network_segments)[api.ID]
-        context.set_binding(segment_id,
-                            "vip_type_a",
-                            json.dumps(fixed_ip_dict),
+        segment_id = random.choice(context.segments_to_bind)[api.ID]
+        context.set_binding(segment_id, "vip_type_a", fixed_ip_dict,
                             status='ACTIVE')
         return True
