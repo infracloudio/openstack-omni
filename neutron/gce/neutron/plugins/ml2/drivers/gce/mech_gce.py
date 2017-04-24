@@ -13,6 +13,8 @@
 #    under the License.
 
 import ipaddr
+import random
+import json
 from neutron.common import gceconf, gceutils
 from neutron.plugins.ml2 import driver_api as api
 from oslo_log import log
@@ -263,3 +265,63 @@ class GceMechanismDriver(api.MechanismDriver):
             operation = gceutils.delete_subnet(compute, project, region, name)
             gceutils.wait_for_operation(compute, project, operation)
             LOG.info("Deleted subnet %s in region %s on GCE" % (name, region))
+
+    def bind_port(self, context):
+        """Attempt to bind a port.
+
+        :param context: PortContext instance describing the port
+
+        This method is called outside any transaction to attempt to
+        establish a port binding using this mechanism driver. Bindings
+        may be created at each of multiple levels of a hierarchical
+        network, and are established from the top level downward. At
+        each level, the mechanism driver determines whether it can
+        bind to any of the network segments in the
+        context.segments_to_bind property, based on the value of the
+        context.host property, any relevant port or network
+        attributes, and its own knowledge of the network topology. At
+        the top level, context.segments_to_bind contains the static
+        segments of the port's network. At each lower level of
+        binding, it contains static or dynamic segments supplied by
+        the driver that bound at the level above. If the driver is
+        able to complete the binding of the port to any segment in
+        context.segments_to_bind, it must call context.set_binding
+        with the binding details. If it can partially bind the port,
+        it must call context.continue_binding with the network
+        segments to be used to bind at the next lower level.
+
+        If the binding results are committed after bind_port returns,
+        they will be seen by all mechanism drivers as
+        update_port_precommit and update_port_postcommit calls. But if
+        some other thread or process concurrently binds or updates the
+        port, these binding results will not be committed, and
+        update_port_precommit and update_port_postcommit will not be
+        called on the mechanism drivers with these results. Because
+        binding results can be discarded rather than committed,
+        drivers should avoid making persistent state changes in
+        bind_port, or else must ensure that such state changes are
+        eventually cleaned up.
+
+        Implementing this method explicitly declares the mechanism
+        driver as having the intention to bind ports. This is inspected
+        by the QoS service to identify the available QoS rules you
+        can use with ports.
+        """
+        LOG.info("bind_port {0}".format(context.__dict__))
+        import ipdb; ipdb.set_trace()
+        fixed_ip_dict = dict()
+        if 'fixed_ips' in context.current:
+            if len(context.current['fixed_ips']) > 0:
+                fixed_ip_dict = context.current['fixed_ips'][0]
+                # fixed_ip_dict['subnet_id'] = \
+                #    self.aws_utils.get_subnet_from_neutron_subnet_id(
+                #        fixed_ip_dict['subnet_id'])
+                # secgroup_ids = context.current['security_groups']
+                # self.create_security_groups_if_needed(context, secgroup_ids)
+
+        segment_id = random.choice(context.network.network_segments)[api.ID]
+        context.set_binding(segment_id,
+                            "vip_type_a",
+                            json.dumps(fixed_ip_dict),
+                            status='ACTIVE')
+        return True
