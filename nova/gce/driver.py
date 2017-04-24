@@ -217,9 +217,11 @@ class GCEDriver(driver.ComputeDriver):
                                   attached to the instance.
         """
         compute, project, zone = self.gce_svc, self.gce_project, self.gce_zone
-        instance_name = instance.name
+        # TODO: Use instance id as instance name
+        instance_name = instance.display_name
         LOG.info("Creating instance %s as %s on GCE." % (instance.display_name,
-                                                         instance.name))
+                                                         instance_name))
+
         # Image Info
         image_link = instance.system_metadata['image_gce_link']
 
