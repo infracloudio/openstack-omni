@@ -123,7 +123,8 @@ def set_instance_metadata(compute, project, zone, instance, items,
                                            body=metadata).execute()
 
 
-def create_instance(compute, project, zone, name, image_link, machine_link):
+def create_instance(compute, project, zone, name, image_link, machine_link,
+                    network_interfaces):
     """Create GCE instance
     :param compute: GCE compute resource object using googleapiclient.discovery
     :param project: string, GCE Project Id
@@ -135,8 +136,8 @@ def create_instance(compute, project, zone, name, image_link, machine_link):
     # source_disk_image = "projects/%s/global/images/%s" % (
     #     "debian-cloud", "debian-8-jessie-v20170327")
     # machine_link = "zones/%s/machineTypes/n1-standard-1" % zone
-    LOG.info("Launching instance %s with image %s and machine %s" %
-             (name, image_link, machine_link))
+    LOG.info("Launching instance %s with image %s, machine %s and network %s" %
+             (name, image_link, machine_link, network_interfaces))
 
     config = {
         'kind':
@@ -157,14 +158,16 @@ def create_instance(compute, project, zone, name, image_link, machine_link):
 
         # Specify a network interface with NAT to access the public
         # internet.
-        'networkInterfaces': [{
-            'network':
-            'global/networks/default',
-            'accessConfigs': [{
-                'type': 'ONE_TO_ONE_NAT',
-                'name': 'External NAT'
-            }]
-        }],
+        # 'networkInterfaces': [{
+        #     'network':
+        #     'global/networks/default',
+        #     'accessConfigs': [{
+        #         'type': 'ONE_TO_ONE_NAT',
+        #         'name': 'External NAT'
+        #     }]
+        # }],
+        'networkInterfaces':
+        network_interfaces,
 
         # Allow the instance to access cloud storage and logging.
         'serviceAccounts': [{
@@ -302,4 +305,14 @@ def get_image(compute, project, name):
     :param project: string, GCE Project Id
     """
     result = compute.images().get(project=project, image=name).execute()
+    return result
+
+
+def get_network(compute, project, name):
+    """Return network info
+    :param compute: GCE compute resource object using googleapiclient.discovery
+    :param project: string, GCE Project Id
+    :param name: string, GCE network name
+    """
+    result = compute.networks().get(project=project, network=name).execute()
     return result
